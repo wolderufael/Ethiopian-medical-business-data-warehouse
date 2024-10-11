@@ -1,0 +1,21 @@
+version: 2
+
+sources:
+  - name: public
+    schema: public
+    tables:
+      - name: scrapped_data_cleaned
+
+models:
+  - name: medical_data_transformed
+    description: "This model transforms raw medical data from telegram to images data for object detection"
+    columns:
+      - name: Message
+        description: "The message of the post"
+        data_tests:
+          - not_null
+      - name: Media Path
+        description: "The path of the image"
+        data_tests:
+          - not_null
+          - valid_image_extension
