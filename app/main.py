@@ -11,6 +11,7 @@ import cv2
 from PIL import Image, ImageDraw
 import numpy as np
 import io
+from typing import List, Optional,Dict
 
 sys.path.append("app/")
 
@@ -25,89 +26,59 @@ os.makedirs("detected_images", exist_ok=True)
 async def read_root():
     return {"message": "Welcome to the API!"}
 
-# @app.post("/items/", response_model=schemas.Item)
-# def create_item(item: schemas.ItemCreate, db: Session = Depends(get_db)):
-#     return crud.create_item(db=db, item=item)
-
 @app.get("/result/", response_model=list[schemas.Item])
 def read_items(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     items = crud.get_items(db, skip=skip, limit=limit)
     return items
 
-# @app.get("/items/{item_id}", response_model=schemas.Item)
-# def read_item(item_id: int, db: Session = Depends(get_db)):
-#     db_item = crud.get_item(db, item_id=item_id)
-#     if db_item is None:
-#         raise HTTPException(status_code=404, detail="Item not found")
-#     return db_item
 
 # Image search and render endpoint
-@app.get("/render/{image_name}",response_model=schemas.Item)
-def render_image(image_name: str, db: Session = Depends(get_db)):
-    # Fetch the record from the database
-    item = crud.get_item_by_image_name(db, image_name=image_name)
-    if item is None:
-        raise HTTPException(status_code=404, detail="Image not found")
-
-    # Load the image from the local folder
-    image_path = f"../data/Photo/{image_name}"  # Ensure the image exists in this folder
-    try:
-        image = Image.open(image_path)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Image file not found")
-
-    # Get bounding box coordinates from the database
-    xmins = list(map(int, item.xmins.split(',')))
-    ymins = list(map(int, item.ymins.split(',')))
-    xmaxs = list(map(int, item.xmaxs.split(',')))
-    ymaxs = list(map(int, item.ymaxs.split(',')))
-    labels = item.labels.split(',')
-
-    # Draw bounding boxes on the image
-    draw = ImageDraw.Draw(image)
-    for xmin, ymin, xmax, ymax, label in zip(xmins, ymins, xmaxs, ymaxs, labels):
-        draw.rectangle([xmin, ymin, xmax, ymax], outline="red", width=3)
-        draw.text((xmin, ymin), label, fill="red")
-
-    # Save the modified image to memory
-    img_byte_arr = io.BytesIO()
-    image.save(img_byte_arr, format='JPEG')
-    img_byte_arr.seek(0)
-
-    # Return the image as a streaming response
-    return StreamingResponse(img_byte_arr, media_type="image/jpeg")
-
-
+@app.get("/render/{image_name}",response_model=schemas.RenderResponse)
 async def render_image(image_name: str, db: Session = Depends(get_db)):
     item = crud.get_item_by_image_name(db, image_name=image_name)
-    
+
     if item is None:
         raise HTTPException(status_code=404, detail="Item not found")
 
     # Split the coordinates and labels
     try:
-        labels = item.labels.split(',')
-        xmins = list(map(float, item.xmins.split(',')))
-        ymins = list(map(float, item.ymins.split(',')))
-        xmaxs = list(map(float, item.xmaxs.split(',')))
-        ymaxs = list(map(float, item.ymaxs.split(',')))
+        labels = item.labels.split(',')if item.labels else []
+        confidences = list(map(float, item.confidences.split(','))) if item.confidences else []
+        xmins = list(map(float, item.xmins.split(','))) if item.xmins else []
+        ymins = list(map(float, item.ymins.split(','))) if item.ymins else []
+        xmaxs = list(map(float, item.xmaxs.split(','))) if item.xmaxs else []
+        ymaxs = list(map(float, item.ymaxs.split(','))) if item.ymaxs else []
         
-        # Construct a list of dictionaries to pair labels with their coordinates
-        detections: List[Dict[str, float]] = []
+        # Validate that all lists have the same length
+        if not (len(labels) == len(confidences) == len(xmins) == len(ymins) == len(xmaxs) == len(ymaxs)):
+            raise HTTPException(status_code=400, detail="Mismatch in number of labels and coordinates")
+
+        # Load the image using OpenCV
+        image_path = f"../data/Photo/{image_name}"  # Update with your image directory
+        image = cv2.imread(image_path)
+
+        # Draw bounding boxes and labels on the image
         for i in range(len(labels)):
-            detection = {
-                "label": labels[i].strip(),
-                "xmin": xmins[i],
-                "ymin": ymins[i],
-                "xmax": xmaxs[i],
-                "ymax": ymaxs[i],
-            }
-            detections.append(detection)
+            label = labels[i].strip()
+            confidence = confidences[i] if confidences else 0
+            xmin = int(xmins[i])
+            ymin = int(ymins[i])
+            xmax = int(xmaxs[i])
+            ymax = int(ymaxs[i])
+
+            # Draw the rectangle
+            cv2.rectangle(image, (xmin, ymin), (xmax, ymax), (255, 0, 0), 2)
+
+            # Prepare the label text with confidence
+            label_text = f"{label}: {confidence:.2f}"
+            cv2.putText(image, label_text, (xmin, ymin - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+
+        # Convert image to byte array for return
+        _, buffer = cv2.imencode('.jpg', image)
+        img_byte_arr = io.BytesIO(buffer)
+
     except (ValueError, IndexError) as e:
         raise HTTPException(status_code=400, detail=f"Error processing coordinates: {e}")
 
-    # Return structured data
-    return {
-        "image_name": item.image_name,
-        "detections": detections
-    }
+    # Return structured data and the image
+    return StreamingResponse(img_byte_arr, media_type="image/jpeg")
