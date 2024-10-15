@@ -23,9 +23,17 @@ The **Ethiopian Medical Business Data Warehouse** collects, processes, and analy
 ├── .venv <br>
 ├── .vscode<br>
 │   └── settings.json<br>
-├── medical
+├── app<br>
+│   ├── crud.py<br>
+│   ├── database.py<br>
+│   ├── main.py<br>
+│   ├── models.py<br>
+│   ├── schemas.py<br>
+├── medical<br>
 ├── notebook<br>
 │   ├── Data_scrapping_and_transformation.ipynb<br>
+│   ├── Load_yolo_result_to_db.ipynb<br>
+│   ├── YOLLO object detection.ipynb<br>
 │
 ├── script
 │   ├── data_cleaning_and_transformation.py<br>
