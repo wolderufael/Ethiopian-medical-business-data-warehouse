@@ -41,7 +41,7 @@ The **Ethiopian Medical Business Data Warehouse** collects, processes, and analy
 │   
 ├── .gitignore<br>
 ├──  README.MD<br>
-├──   requirements.txt <br>
+├──  requirements.txt <br>
 
 ### Key Features:
 - Data scraping from Telegram channels
