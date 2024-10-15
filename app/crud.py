@@ -14,3 +14,6 @@ def create_item(db: Session, item: schemas.ItemCreate):
     db.refresh(db_item)
     return db_item
 
+def get_item_by_image_name(db: Session, image_name: str):
+    return db.query(models.Item).filter(models.Item.image_name == image_name).first()
+

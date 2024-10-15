@@ -5,10 +5,10 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 import crud, models, schemas
 from database import SessionLocal, engine, get_db
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse,StreamingResponse
 import torch
 import cv2
-from PIL import Image
+from PIL import Image, ImageDraw
 import numpy as np
 import io
 
@@ -17,13 +17,6 @@ sys.path.append("app/")
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-
-# Load the pre-trained YOLOv5 model
-# with open('../models/logistic_regression_model-09-10-2024-08-34-45-00.pkl', 'rb') as f:
-#     model = pickle.load(f)
-    
-# Load a pre-trained YOLOv5 model
-model = torch.hub.load('ultralytics/yolov5', 'yolov5s')
 
 # Create a folder for saving the detection results if it doesn't exist
 os.makedirs("detected_images", exist_ok=True)
@@ -48,56 +41,73 @@ def read_items(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
 #         raise HTTPException(status_code=404, detail="Item not found")
 #     return db_item
 
-<<<<<<< HEAD
-# # API route for object detection
-# @app.post("/detect/")
-# async def detect_objects(file: UploadFile = File(...)):
-#     # Load the image file
-#     image_data = await file.read()
+# Image search and render endpoint
+@app.get("/render/{image_name}",response_model=schemas.Item)
+def render_image(image_name: str, db: Session = Depends(get_db)):
+    # Fetch the record from the database
+    item = crud.get_item_by_image_name(db, image_name=image_name)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Image not found")
 
-#     # Convert the image file into an OpenCV image
-#     image = Image.open(io.BytesIO(image_data))
-#     image = np.array(image)
+    # Load the image from the local folder
+    image_path = f"../data/Photo/{image_name}"  # Ensure the image exists in this folder
+    try:
+        image = Image.open(image_path)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Image file not found")
 
-#     # Perform object detection
-#     results = model(image)
+    # Get bounding box coordinates from the database
+    xmins = list(map(int, item.xmins.split(',')))
+    ymins = list(map(int, item.ymins.split(',')))
+    xmaxs = list(map(int, item.xmaxs.split(',')))
+    ymaxs = list(map(int, item.ymaxs.split(',')))
+    labels = item.labels.split(',')
 
-#     # Draw bounding boxes on the image using OpenCV
-#     results.render()  # This updates the image array with bounding boxes
+    # Draw bounding boxes on the image
+    draw = ImageDraw.Draw(image)
+    for xmin, ymin, xmax, ymax, label in zip(xmins, ymins, xmaxs, ymaxs, labels):
+        draw.rectangle([xmin, ymin, xmax, ymax], outline="red", width=3)
+        draw.text((xmin, ymin), label, fill="red")
 
-#     # Convert the updated image (with bounding boxes) to a format that can be returned
-#     output_image = Image.fromarray(image)
-#     output_path = f"detected_images/{file.filename}"
+    # Save the modified image to memory
+    img_byte_arr = io.BytesIO()
+    image.save(img_byte_arr, format='JPEG')
+    img_byte_arr.seek(0)
 
-#     # Save the output image to a file
-#     output_image.save(output_path)
+    # Return the image as a streaming response
+    return StreamingResponse(img_byte_arr, media_type="image/jpeg")
 
-#     # Return the image with detections as a downloadable file
-#     return FileResponse(output_path, media_type="image/jpeg", filename=file.filename)
-=======
-# API route for object detection
-@app.post("/detect/")
-async def detect_objects(file: UploadFile = File(...)):
-    # Load the image file
-    image_data = await file.read()
 
-    # Convert the image file into an OpenCV image
-    image = Image.open(io.BytesIO(image_data))
-    image = np.array(image)
+async def render_image(image_name: str, db: Session = Depends(get_db)):
+    item = crud.get_item_by_image_name(db, image_name=image_name)
+    
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
 
-    # Perform object detection
-    results = model(image)
+    # Split the coordinates and labels
+    try:
+        labels = item.labels.split(',')
+        xmins = list(map(float, item.xmins.split(',')))
+        ymins = list(map(float, item.ymins.split(',')))
+        xmaxs = list(map(float, item.xmaxs.split(',')))
+        ymaxs = list(map(float, item.ymaxs.split(',')))
+        
+        # Construct a list of dictionaries to pair labels with their coordinates
+        detections: List[Dict[str, float]] = []
+        for i in range(len(labels)):
+            detection = {
+                "label": labels[i].strip(),
+                "xmin": xmins[i],
+                "ymin": ymins[i],
+                "xmax": xmaxs[i],
+                "ymax": ymaxs[i],
+            }
+            detections.append(detection)
+    except (ValueError, IndexError) as e:
+        raise HTTPException(status_code=400, detail=f"Error processing coordinates: {e}")
 
-    # Draw bounding boxes on the image using OpenCV
-    results.render()  # This updates the image array with bounding boxes
-
-    # Convert the updated image (with bounding boxes) to a format that can be returned
-    output_image = Image.fromarray(image)
-    output_path = f"detected_images/{file.filename}"
-
-    # Save the output image to a file
-    output_image.save(output_path)
-
-    # Return the image with detections as a downloadable file
-    return FileResponse(output_path, media_type="image/jpeg", filename=file.filename)
->>>>>>> e1ac6f6eeac285edb39251df59a37ea084ebc3f5
+    # Return structured data
+    return {
+        "image_name": item.image_name,
+        "detections": detections
+    }
