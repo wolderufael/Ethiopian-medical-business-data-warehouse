@@ -35,9 +35,9 @@ The **Ethiopian Medical Business Data Warehouse** collects, processes, and analy
 │   ├── Load_yolo_result_to_db.ipynb<br>
 │   ├── YOLLO object detection.ipynb<br>
 │
-├── script
-│   ├── data_cleaning_and_transformation.py<br>
-│   ├──script/telegram_scrapper.py<br>
+├──script<br>
+|   ├──data_cleaning_and_transformation.py<br>
+│   ├──telegram_scrapper.py<br>
 │   
 ├── .gitignore<br>
 ├──  README.MD<br>
@@ -45,8 +45,8 @@ The **Ethiopian Medical Business Data Warehouse** collects, processes, and analy
 
 ### Key Features:
 - Data scraping from Telegram channels
-- Object detection using YOLOv5
 - Data transformation and analysis
+- Object detection using YOLOv5
 - FastAPI for exposing data and analysis results
 
 ## Installation
