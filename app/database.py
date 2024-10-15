@@ -10,8 +10,6 @@ username = os.getenv('DB_USER')
 password = os.getenv('DB_PASSWORD')
 database_name = os.getenv('DB_NAME')
 
-
-# SQLALCHEMY_DATABASE_URL = "postgresql://postgres:kerod@localhost/postgres"
 SQLALCHEMY_DATABASE_URL = "postgresql://postgres:root@localhost/telegram"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)

@@ -19,20 +19,14 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 # Load the pre-trained YOLOv5 model
-<<<<<<< HEAD
-with open('../models/yolov5s-15-10-2024-18-08-51-00.pkl', 'rb') as f:
-    model = pickle.load(f)
-
-# # Create a folder for saving the detection results if it doesn't exist
-# os.makedirs("detected_images", exist_ok=True)
-=======
-# Load the pre-trained logistic re model model using pickle
-with open('../models/logistic_regression_model-09-10-2024-08-34-45-00.pkl', 'rb') as f:
-    model = pickle.load(f)
+# with open('../models/logistic_regression_model-09-10-2024-08-34-45-00.pkl', 'rb') as f:
+#     model = pickle.load(f)
+    
+# Load a pre-trained YOLOv5 model
+model = torch.hub.load('ultralytics/yolov5', 'yolov5s')
 
 # Create a folder for saving the detection results if it doesn't exist
 os.makedirs("detected_images", exist_ok=True)
->>>>>>> e1ac6f6eeac285edb39251df59a37ea084ebc3f5
 
 @app.get("/")
 async def read_root():
